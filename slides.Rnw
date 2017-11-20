@@ -1,0 +1,165 @@
+\documentclass{beamer}
+\usetheme{bergen}
+\usecolortheme{albatross}
+
+\begin{document}
+
+\title{Comparison Barplots}
+\author{Charles Redmond}
+
+\begin{frame}
+  \titlepage
+\end{frame}
+
+\begin{frame}[fragile]
+  \frametitle{Outline}
+   \tableofcontents
+\end{frame}
+
+\section{Install and load libraries}
+\begin{frame}[fragile]
+  \frametitle{Install and load libraries}
+   \begin{itemize}
+    \item<1->
+     <<warning=FALSE,message=FALSE>>=
+     library(dplyr)
+     @
+     \item<2->
+     <<warning=FALSE,message=FALSE>>=
+     library(ggplot2)
+     @
+      \item<3->
+     <<warning=FALSE,message=FALSE>>=
+     library(gutenbergr)
+     @
+     \item<4->
+     <<warning=FALSE,message=FALSE>>=
+     library(stringr)
+     @
+    \item<5->  
+     <<warning=FALSE,message=FALSE>>=
+     library(tidytext)
+     @
+    \end{itemize}
+\end{frame}
+
+\section{Access Project Gutenberg}
+\begin{frame}[fragile]
+ \frametitle{Access Project Gutenberg}
+   <<message=FALSE,warning=FALSE>>=
+   df<-gutenberg_works(str_detect(title,'Dracula'))
+   df$gutenberg_id
+   df$title
+   @
+\end{frame}
+
+%%Showing 500th line of the text.  498:500 would be those 3 lines.  %%Substring is pulling out first 21 characters of the those lines %%because they are too long.
+
+\section{Download Dracula}
+ \begin{frame}[fragile]
+  \frametitle{Download Dracula}
+   <<message=FALSE,warning=FALSE>>=
+   dracula<-gutenberg_download(345)
+   colnames(dracula)
+   substr(dracula$text[500],1,21)
+   @
+\end{frame}
+
+\section{Unpack the Words}
+ \begin{frame}[fragile]
+  \frametitle{Unpack the Words}
+    <<message=FALSE,warning=FALSE>>=
+    dracula_words<-dracula%>%
+     unnest_tokens(word,text)
+   colnames(dracula_words)
+   dracula_words[498:500, ]
+@
+\end{frame}
+
+\section{The Bing Lexicon}
+ \begin{frame}[fragile]
+  \frametitle{The Bing Lexicon}
+    <<message=FALSE,warning=FALSE>>=
+   bing<-get_sentiments('bing')
+   colnames(bing)
+   bing[498:500,]
+   @
+\end{frame}
+
+\section{The Inner Join}
+ \begin{frame}[fragile]
+  \frametitle{The Inner Join}
+    <<>>=
+   dracula_words<-inner_join(dracula_words,bing)
+   dracula_words$gutenberg_id<-NULL
+   dracula_words[498:500,]
+   @
+\end{frame}
+
+\section{Top 10 Positive Words}
+ \begin{frame}[fragile,allowframebreaks]
+  \frametitle{Top 10 Positive Words}
+   <<>>=
+  dracula_pos<-dracula_words%>%
+    filter(sentiment=='positive')%>%
+    group_by(word)%>%
+    summarize(count=n(),sentiment=first(sentiment))%>%
+    arrange(count)%>%
+    top_n(10,wt=count)
+   @
+
+\framebreak
+
+  <<>>=
+  dracula_pos
+  @
+
+
+\end{frame}
+
+\section{Top 10 Negative Words}
+ \begin{frame}[fragile,allowframebreaks]
+  \frametitle{Top 10 Negative Words}
+   <<>>=
+  dracula_neg<-dracula_words%>%
+  filter(sentiment=='negative')%>%
+  group_by(word)%>%
+  summarize(count=n(),sentiment=first(sentiment))%>%
+  arrange(count)%>%
+  filter(word != 'miss')%>%
+  top_n(10,wt=count)
+   @
+
+\framebreak
+
+  <<>>=
+  dracula_neg
+  @
+\end{frame}
+
+\section{The Comparison Bar Plot}
+ \begin{frame}[fragile,allowframebreaks]
+  \frametitle{The Comparison Bar Plots}
+   <<>>=
+   dracula_pos$word<-factor(dracula_pos$word,levels=dracula_pos$word)
+   
+   dracula_neg$word<-factor(dracula_neg$word,levels=dracula_neg$word)
+   
+   dracula_comp<-rbind(dracula_pos,dracula_neg)
+   
+   plot<-ggplot()+
+   geom_bar(data=dracula_comp,aes(x=word,y=count, 
+   fill=sentiment, color=sentiment),stat='identity')+
+   coord_flip()+
+   facet_wrap(~sentiment,scales='free_y')+
+   scale_fill_manual(values=c('black','#ea6205'))+
+   scale_color_manual(values=c('#ea6205','black'))
+   @
+
+\framebreak
+   <<echo=FALSE,fig.height=4>>=
+   plot
+   @
+\end{frame}
+
+\end{document}
